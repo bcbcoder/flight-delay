@@ -3,11 +3,13 @@ import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
 from sklearn.model_selection import train_test_split
+from sklearn.model_selection import train_test_split, GridSearchCV
+from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import confusion_matrix, f1_score
 
-data = pd.read_csv('/path/tofile') 
+data = pd.read_csv('/Users/bernardc.burman/Library/Containers/com.microsoft.Excel/Data/Downloads/AirTrax_Flight.csv') # get rid of file path before git upload
 
-data = data.head(3000)
+data = data.head(1000)
 data = data.dropna()
 data = data.drop(columns=['Carrier Code', 'Flight Number', 'Actual departure time', 'Taxi-Out time (Minutes)',
                           'Wheels-off time', 'Delay Carrier (Minutes)', 'Delay Weather (Minutes)',
@@ -120,51 +122,35 @@ plt.title('Pearson Correlation Heatmap')  # Set the heatmap's title (optional)
 
 plt.show()
 
+train, test = train_test_split(data, test_size=0.2, random_state=41)
 
-def calculate_prior(data, Y):
-    classes = sorted(list(data[Y].unique()))
-    prior = []
-    for i in classes:
-        prior.append(len(data[data[Y] == i]) / len(data))
-    return prior
-
-
-def calculate_likelihood_gaussian(df, feat_name, feat_val, Y, label):
-    df = df[df[Y] == label]
-    mean, std = df[feat_name].mean(), df[feat_name].std()
-    if std == 0:
-        std = 1e-6  # Handle division by zero by adding a small epsilon
-    p_x_given_y = (1 / (np.sqrt(2 * np.pi) * std)) * np.exp(-((feat_val - mean) ** 2 / (2 * std ** 2)))
-    return p_x_given_y
-
-
-def naive_bayes_gaussian(df, X, Y):
-    features = list(df.columns)[:-1]
-    prior = calculate_prior(df, Y)
-
-    Y_pred = []
-
-    for x in X:
-        labels = sorted(list(df[Y].unique()))
-        likelihood = [1] * len(labels)
-        for j in range(len(labels)):
-            for i in range(len(features)):
-                likelihood[j] *= calculate_likelihood_gaussian(df, features[i], x[i], Y, labels[j])
-
-        post_prob = [1] * len(labels)
-        for j in range(len(labels)):
-            post_prob[j] = likelihood[j] * prior[j]
-
-        Y_pred.append(np.argmax(post_prob))
-
-    return np.array(Y_pred)
-
-
-train, test = train_test_split(data, test_size=0.1, random_state=41)
-
+# Define the features and target variable
+X_train = train.iloc[:, :-1].values
+Y_train = train.iloc[:, -1].values
 X_test = test.iloc[:, :-1].values
 Y_test = test.iloc[:, -1].values
-Y_pred = naive_bayes_gaussian(train, X=X_test, Y="delay")
+
+# Create a Random Forest classifier
+rf_classifier = RandomForestClassifier(random_state=41)
+
+param_grid = {
+    'n_estimators': [50, 100, 200, 300],
+    'max_depth': [None, 10, 20, 30],
+    'min_samples_split': [2, 5, 10],
+    'min_samples_leaf': [1, 2, 4]
+}
+
+grid_search = GridSearchCV(rf_classifier, param_grid, cv=5, scoring='f1')
+
+grid_search.fit(X_train, Y_train)
+
+best_params = grid_search.best_params_
+
+best_rf_classifier = RandomForestClassifier(**best_params, random_state=41)
+
+best_rf_classifier.fit(X_train, Y_train)
+
+Y_pred = best_rf_classifier.predict(X_test)
 
 print(confusion_matrix(Y_test, Y_pred))
 print(f1_score(Y_test, Y_pred))
