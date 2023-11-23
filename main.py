@@ -2,14 +2,14 @@ import pandas as pd
 import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
-from sklearn.model_selection import train_test_split
 from sklearn.model_selection import train_test_split, GridSearchCV
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import confusion_matrix, f1_score
 
-data = pd.read_csv('/Users/bernardc.burman/Library/Containers/com.microsoft.Excel/Data/Downloads/AirTrax_Flight.csv') # get rid of file path before git upload
+data = pd.read_csv(
+    '/Users/bernardc.burman/Library/Containers/com.microsoft.Excel/Data/Downloads/AirTrax_Flight.csv')  # get rid of file path before git upload
 
-data = data.head(1000)
+data = data.head(2000)
 data = data.dropna()
 data = data.drop(columns=['Carrier Code', 'Flight Number', 'Actual departure time', 'Taxi-Out time (Minutes)',
                           'Wheels-off time', 'Delay Carrier (Minutes)', 'Delay Weather (Minutes)',
@@ -41,8 +41,8 @@ def map_airport_code(airport_code):
 data['Destination Airport ID'] = data['Destination Airport'].apply(map_airport_code)
 data = data.drop(columns=['Destination Airport'])
 
-
 category_mapping = {
+    0: 1,
     1: 1,
     2: 1,
     3: 1,
@@ -69,28 +69,8 @@ category_mapping = {
     24: 4
 }
 
-
 data['Scheduled departure hour category'] = data['Scheduled departure hour'].map(category_mapping)
 data = data.drop(columns=['Scheduled departure hour'])
-
-category_mapping2 = {
-    1: 1,
-    2: 1,
-    3: 1,
-    4: 2,
-    5: 2,
-    6: 2,
-    7: 3,
-    8: 3,
-    9: 3,
-    10: 4,
-    11: 4,
-    12: 4
-}
-
-
-data['Month Collapsed'] = data['month'].map(category_mapping2)
-data = data.drop(columns=['month'])
 
 
 def determine_delay(isDel):
@@ -103,44 +83,36 @@ def determine_delay(isDel):
 data['delay'] = data['isDelayed'].apply(determine_delay)
 data = data.drop(columns=['isDelayed'])
 
-print(data.iloc[10])
-print(data.head(30))
-
-print(data.head(10))
-
-
 correlation_matrix = data.corr(method='pearson')
 
-
 plt.figure(figsize=(10, 8))
-
-
+print(data.iloc[10])
 sns.set(font_scale=1)
 sns.heatmap(correlation_matrix, annot=True, cmap='coolwarm', linewidths=.5)
-
 plt.title('Pearson Correlation Heatmap')  # Set the heatmap's title (optional)
-
-plt.show()
+# plt.show()
+print("Correlation matrix and heatmap created.")
 
 train, test = train_test_split(data, test_size=0.2, random_state=41)
 
-# Define the features and target variable
+print("Data split into training and testing sets.")
+
 X_train = train.iloc[:, :-1].values
 Y_train = train.iloc[:, -1].values
 X_test = test.iloc[:, :-1].values
 Y_test = test.iloc[:, -1].values
 
-# Create a Random Forest classifier
+print("Features and target variable defined.")
+
 rf_classifier = RandomForestClassifier(random_state=41)
 
 param_grid = {
-    'n_estimators': [50, 100, 200, 300],
-    'max_depth': [None, 10, 20, 30],
-    'min_samples_split': [2, 5, 10],
-    'min_samples_leaf': [1, 2, 4]
+    'n_estimators': [50, 75, 100, 150, 200, 250, 300],
+    'max_depth': [None, 10, 15, 20, 25, 30]
 }
 
 grid_search = GridSearchCV(rf_classifier, param_grid, cv=5, scoring='f1')
+
 
 grid_search.fit(X_train, Y_train)
 
